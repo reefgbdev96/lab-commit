@@ -3,6 +3,11 @@ apiVersion: elbv2.k8s.aws/v1beta1
 kind: IngressClassParams
 metadata:
   name: lab-alb
+  annotations:
+    # The CRD ships with the load balancer controller app created in wave 0;
+    # retry applies this once it exists.
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   scheme: internal
   targetType: ip # Fargate pods are registered by IP
@@ -18,6 +23,8 @@ apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
   name: lab-alb
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   controller: ingress.k8s.aws/alb
   parameters:
