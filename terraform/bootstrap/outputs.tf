@@ -8,6 +8,6 @@ output "region" {
 }
 
 output "operator_role_arn" {
-  description = "Role to assume (MFA) for everything after the bootstrap."
+  description = "Role to assume for everything after the bootstrap."
   value       = aws_iam_role.operator.arn
 }

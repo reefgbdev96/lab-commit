@@ -20,6 +20,6 @@ variable "region" {
 }
 
 variable "operator_user" {
-  description = "IAM user allowed to assume the privileged operator role (with MFA), e.g. candidate04."
+  description = "IAM user allowed to assume the privileged operator role, e.g. candidate04."
   type        = string
 }

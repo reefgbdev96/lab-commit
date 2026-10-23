@@ -13,6 +13,8 @@ out() { terraform -chdir="$TF" output -raw "$1"; }
 k() { kubectl --context "$CONTEXT" "$@"; }
 confirm() { read -r -p "$1 [y/N] " reply && [[ $reply == y ]]; }
 api_host() { out cluster_endpoint | sed 's#^https://##'; }
+# SSH form, so Argo CD authenticates with the deploy key.
+repo_url() { git remote get-url origin | sed -E 's#^https://github.com/#git@github.com:#'; }
 
 rds_ca() {
   local file="${TMPDIR:-/tmp}/rds-ca.pem"
@@ -77,7 +79,7 @@ cmd_db_shell() { psql_master; }
 # to review and commit. Pairs are values-key=terraform-output.
 cmd_gitops_env() {
   local file=gitops/apps/values.yaml pair
-  VALUE=$(git remote get-url origin) yq -i '.repoURL = strenv(VALUE)' "$file"
+  VALUE=$(repo_url) yq -i '.repoURL = strenv(VALUE)' "$file"
   for pair in region=region clusterName=cluster_name vpcId=vpc_id vpcCidr=vpc_cidr \
     ecrRegistry=ecr_registry rdsAddress=rds_address dbAppUser=db_app_user \
     certificateArn=certificate_arn zone=zone_name caCert=certificate_pem \
@@ -91,7 +93,7 @@ cmd_gitops_env() {
 
 cmd_bootstrap() {
   local repo zone
-  repo=$(git remote get-url origin)
+  repo=$(repo_url)
   zone=$(out zone_name)
 
   k create namespace monitoring --dry-run=client -o yaml | k apply -f -

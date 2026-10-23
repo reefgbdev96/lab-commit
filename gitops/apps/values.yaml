@@ -1,19 +1,19 @@
 # The only environment-specific file in gitops/: written by `make gitops-env`
 # from Terraform outputs, then committed. Empty values fail rendering on purpose.
-repoURL: ""
+repoURL: "git@github.com:reefgbdev96/lab-commit.git"
 revision: main
-region: ""
-clusterName: ""
-vpcId: ""
-vpcCidr: ""
-ecrRegistry: ""
-rdsAddress: ""
+region: "eu-west-1"
+clusterName: "lab-commit"
+vpcId: "vpc-0ff7801e28a80363b"
+vpcCidr: "10.0.0.0/16"
+ecrRegistry: "788717064995.dkr.ecr.eu-west-1.amazonaws.com"
+rdsAddress: "lab-commit-db.cvy4mak86lyp.eu-west-1.rds.amazonaws.com"
 dbAppUser: lab_app
-certificateArn: ""
+certificateArn: "arn:aws:acm:eu-west-1:788717064995:certificate/7b5348fe-3c52-45f9-b5e4-c2285051faf9"
 zone: lab.internal
-caCert: ""
-clusterSecurityGroupId: ""
-dbClientSecurityGroupId: ""
-lbcRoleArn: ""
-externalDnsRoleArn: ""
-backendRoleArn: ""
+caCert: "-----BEGIN CERTIFICATE-----\nMIIDrDCCApSgAwIBAgIQSDTafufKqXadjI42CtckQzANBgkqhkiG9w0BAQsFADA8\nMRMwEQYDVQQKEwpDb21tSVQgTGFiMSUwIwYDVQQDExxsYWItY29tbWl0LXRhc2su\nbGFiLmludGVybmFsMB4XDTI2MTAyMzA2NTUzM1oXDTI3MTAyMzA2NTUzM1owPDET\nMBEGA1UEChMKQ29tbUlUIExhYjElMCMGA1UEAxMcbGFiLWNvbW1pdC10YXNrLmxh\nYi5pbnRlcm5hbDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMGPe5Bi\n9a/2c46l1+wA/F6TbMaGsx9YvdWKBdh+z2VWcBCNMSN2BpgihLJj8GyuNSTNfjmy\nLnl/g0zeQ9TbK3jLl1C/eyf+1Vq+Z9itpNaVVn+ouWEyhc7YF6xjT9nl0HSML3Ia\nNFbCbm2TNsHY3e5iG0/Jtq1+dHskeN/oqdPe6rtPnmzuKbs/EWju5ISbS612udtF\nbBFV5RCpg3rusLtIpocks/is5iFhg1d4CdfV5C/pF8ViaLrCSo6mZe3R+5Sn1mAj\nKcY0WX1z05MPOn9rHGgv/jbrHEeLVjNKMtsrj2Gj41xELHgTln3QQCxKFuat18c+\noFyk/y/wFMY8Gg8CAwEAAaOBqTCBpjAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAww\nCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUcQF1xk6GzVuyNO8H\n8YvG/rrbf98wUgYDVR0RBEswSYIcbGFiLWNvbW1pdC10YXNrLmxhYi5pbnRlcm5h\nbIIUZ3JhZmFuYS5sYWIuaW50ZXJuYWyCE2FyZ29jZC5sYWIuaW50ZXJuYWwwDQYJ\nKoZIhvcNAQELBQADggEBAAXUrtqMiQgVoSU7SASSZ+kkduyVhXlhnCqXPq+sx1kW\nITWOm0kAgiYo+2lFBfan+53pX8+osItkoA7AAgmRBVM5i5A/5DwZAe3Ybn9YBaI+\nZcdIbUV7uAnplc6IDl13YOu3UhvzDye3yRAOx7VVAU0z2FBV8PfTo6GDaOWxRt1e\n7SKTj2qYDZarObY0DhD2W2AHeecyiW+Anjo8QPYutCmAnfhq3b4e4FoKwRYs5Kf4\nRwEo+m+18oWssD2NdNzGESTIult5Z8vlZsDuhfmwTQUPi9DGLxrvFGxVmZjr2N8S\nqWS71k8hNCEHUQAAGLIYakloAChJ3lAFDW8TFFkKuNk=\n-----END CERTIFICATE-----"
+clusterSecurityGroupId: "sg-0b946e82ab6c8fc2a"
+dbClientSecurityGroupId: "sg-05d9af21c9c079ff1"
+lbcRoleArn: "arn:aws:iam::788717064995:role/lab-commit-lbc-234f73f46e912a784bafcc1572"
+externalDnsRoleArn: "arn:aws:iam::788717064995:role/lab-commit-external-dns-f3594258e88dd9cc2e85d2ced7"
+backendRoleArn: "arn:aws:iam::788717064995:role/lab-commit-backend-42804bc9abd8cf5a5046984584"

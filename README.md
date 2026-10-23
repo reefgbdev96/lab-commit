@@ -112,37 +112,33 @@ Run from the repository root. The region defaults to eu-west-1. CLI sign-in is
 `aws login --region eu-west-1` (browser sign-in, temporary credentials — no access
 keys on disk).
 
-1. Enable an MFA device on your IAM user (IAM console → your user → Security credentials).
-2. Bootstrap, as your IAM user — the state bucket plus an MFA-protected admin role:
+1. Bootstrap, as your IAM user — the state bucket plus a dedicated admin role:
    `terraform -chdir=terraform/bootstrap init && terraform -chdir=terraform/bootstrap apply -var operator_user=<your-iam-user>`
    then add the role profile to `~/.aws/config` and use it from here on:
    ```ini
    [profile commit]
    role_arn          = <operator_role_arn output>
    source_profile    = default
-   mfa_serial        = arn:aws:iam::<account>:mfa/<device-name>
    role_session_name = <your-iam-user>
-   duration_seconds  = 14400
    region            = eu-west-1
    ```
-   `export AWS_PROFILE=commit` and run `aws sts get-caller-identity` once to enter the
-   MFA code. Terraform cannot prompt for MFA, so give it the cached role session:
-   `eval "$(aws configure export-credentials --format env)"`.
-3. `cp terraform/envs/lab/terraform.tfvars.example terraform/envs/lab/terraform.tfvars`
+   `export AWS_PROFILE=commit`, check `aws sts get-caller-identity`, then hand the role
+   session to Terraform: `eval "$(aws configure export-credentials --format env)"`.
+2. `cp terraform/envs/lab/terraform.tfvars.example terraform/envs/lab/terraform.tfvars`
    and set `github_repository`.
-4. `make init`, then `terraform -chdir=terraform/envs/lab apply`.
+3. `make init`, then `terraform -chdir=terraform/envs/lab apply`.
    Then `make delete-default-vpc` (asks first).
-5. In the AWS console, open **Developer Tools → Connections**, choose the pending
+4. In the AWS console, open **CodePipeline → Settings → Connections**, choose the pending
    `lab-commit` connection and **Update pending connection** to install the GitHub App.
-6. Store the PAT. It's read silently and piped, so it never lands in shell history,
+5. Store the PAT. It's read silently and piped, so it never lands in shell history,
    a file, or a process argument list:
    `read -rs PAT && printf '%s' "$PAT" | aws secretsmanager put-secret-value --secret-id lab-commit/github-token --secret-string file:///dev/stdin; unset PAT`
-7. Start each pipeline once so every image exists:
+6. Start each pipeline once so every image exists:
    `for s in frontend backend loadgen; do aws codepipeline start-pipeline-execution --name lab-commit-$s; done`
-8. In one terminal `make tunnel-db`; in another `make db-bootstrap`.
-9. In one terminal `make tunnel-eks`; in another `make kubeconfig`.
-10. `make gitops-env`, review `gitops/apps/values.yaml`, commit and push.
-11. `make bootstrap` (`DEPLOY_KEY=path make bootstrap` for a private repo). It
+7. In one terminal `make tunnel-db`; in another `make db-bootstrap`.
+8. In one terminal `make tunnel-eks`; in another `make kubeconfig`.
+9. `make gitops-env`, review `gitops/apps/values.yaml`, commit and push.
+10. `make bootstrap` (`DEPLOY_KEY=path make bootstrap` for a private repo). It
     installs Argo CD and waits until all six Applications are Synced and Healthy.
 
 ## Review it
