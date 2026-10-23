@@ -21,4 +21,15 @@ spec:
           name: aws-load-balancer-controller
           annotations:
             eks.amazonaws.com/role-arn: {{ include "apps.required" (dict "key" "lbcRoleArn" "value" .Values.lbcRoleArn) }}
+  # The chart generates a new webhook CA on every render; keep the first one.
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions: [".webhooks[]?.clientConfig.caBundle"]
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions: [".webhooks[]?.clientConfig.caBundle"]
+    - kind: Secret
+      name: aws-load-balancer-tls
+      jsonPointers: [/data]
   {{- include "apps.syncPolicy" dict | nindent 2 }}

@@ -11,6 +11,13 @@ notifications:
 applicationSet:
   replicas: 0 # unused; saves a Fargate pod
 
+# Fargate sizes the node from requests; without them the controller gets 0.5 GB
+# and is OOM-killed once it caches the kube-prometheus-stack CRDs.
+controller:
+  resources:
+    requests: { cpu: 500m, memory: 1536Mi }
+    limits: { memory: 1536Mi }
+
 server:
   ingress:
     enabled: true

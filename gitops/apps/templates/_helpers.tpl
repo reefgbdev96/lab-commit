@@ -9,6 +9,7 @@ syncPolicy:
     - CreateNamespace=true
     - ServerSideApply=true
     - SkipDryRunOnMissingResource=true
+    - RespectIgnoreDifferences=true
   retry:
     limit: 10
     backoff:
