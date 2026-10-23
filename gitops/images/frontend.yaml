@@ -1,0 +1,4 @@
+# Rewritten by the frontend pipeline (ci/buildspec.yml) with <VERSION>-<sha7>.
+frontend:
+  image:
+    tag: v1.0.0

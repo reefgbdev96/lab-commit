@@ -1,0 +1,42 @@
+# Builds one service (SERVICE, SOURCE_SHA come from the pipeline) and records the
+# new image tag in gitops/ for Argo CD. Everything runs in the build phase, so a
+# failed build can never commit a tag (post_build would run even after a failure).
+version: 0.2
+
+env:
+  shell: bash
+  secrets-manager:
+    GITHUB_TOKEN: lab-commit/github-token
+
+phases:
+  install:
+    runtime-versions:
+      golang: 1.26 # if the image lacks 1.26, use its newest Go; the go.mod toolchain line still selects go1.26.10
+  build:
+    commands:
+      - |
+        set -euo pipefail
+        (cd apps/$SERVICE && go version | grep -q 'go1.26.10') || { echo "wrong Go toolchain"; exit 1; }
+
+        # Unique per commit: a retry of the same commit reuses the pushed image and
+        # only finishes the GitOps write-back. The page still shows plain VERSION.
+        VERSION=$(cat apps/$SERVICE/VERSION)
+        TAG=$VERSION-${SOURCE_SHA:0:7}
+        IMAGE=$ECR_REGISTRY/lab-commit/$SERVICE:$TAG
+
+        if aws ecr describe-images --repository-name lab-commit/$SERVICE --image-ids imageTag=$TAG >/dev/null 2>&1; then
+          echo "$IMAGE already pushed; this retry only completes the GitOps write-back"
+        else
+          (cd apps/$SERVICE && go vet ./... && go test -race ./...)
+          aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
+          docker build --platform linux/amd64 --build-arg VERSION=$VERSION -t $IMAGE apps/$SERVICE
+          docker push $IMAGE
+        fi
+
+        git clone --depth 1 https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY.git gitops-repo
+        printf '%s:\n  image:\n    tag: %s\n' "$SERVICE" "$TAG" > gitops-repo/gitops/images/$SERVICE.yaml
+        cd gitops-repo
+        if ! git diff --quiet; then
+          git -c user.name=lab-commit-ci -c user.email=ci@lab-commit.invalid commit -am "deploy: $SERVICE $TAG"
+          git push || (git pull --rebase && git push) # two service pipelines may race
+        fi

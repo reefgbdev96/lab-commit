@@ -1,0 +1,23 @@
+# Compiled binaries (module name matches dir, so `go build` drops them here)
+/apps/backend/backend
+/apps/frontend/frontend
+/apps/loadgen/loadgen
+
+# Terraform — .terraform.lock.hcl is deliberately NOT ignored: it pins provider
+# hashes and belongs in version control.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+tfplan
+*.tfplan
+
+# Local secrets — never commit
+*.pem
+*.key
+.env
+
+# IDE
+.idea/

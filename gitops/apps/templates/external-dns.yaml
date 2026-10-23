@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+{{ include "apps.metadata" "external-dns" }}
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  source:
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    chart: external-dns
+    targetRevision: 1.23.0
+    helm:
+      valuesObject:
+        provider:
+          name: aws
+        env:
+          - name: AWS_DEFAULT_REGION # pods on Fargate cannot read it from instance metadata
+            value: {{ include "apps.required" (dict "key" "region" "value" .Values.region) }}
+        sources: [ingress]
+        domainFilters: [{{ .Values.zone }}]
+        extraArgs: [--aws-zone-type=private]
+        policy: upsert-only # never deletes records it did not create
+        registry: txt
+        txtOwnerId: lab-commit
+        serviceAccount:
+          name: external-dns
+          annotations:
+            eks.amazonaws.com/role-arn: {{ include "apps.required" (dict "key" "externalDnsRoleArn" "value" .Values.externalDnsRoleArn) }}
+  {{- include "apps.syncPolicy" dict | nindent 2 }}

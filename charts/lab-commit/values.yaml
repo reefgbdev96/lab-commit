@@ -1,0 +1,53 @@
+# Environment-specific values (registry, region, database URL, role ARN, security
+# groups, CA) come from gitops/apps; image tags come from gitops/images/.
+registry: ""
+region: ""
+zone: lab.internal
+imagePullPolicy: IfNotPresent
+
+frontend:
+  image:
+    repository: lab-commit/frontend
+    tag: ""
+  host: lab-commit-task
+  ingress:
+    enabled: true
+    className: lab-alb
+  # Fargate sizes each pod from its requests (rounded up to 0.25 vCPU / 0.5 GB).
+  resources:
+    requests: { cpu: 100m, memory: 64Mi }
+    limits: { memory: 128Mi }
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 4
+    targetRPSPerPod: 10
+    prometheusAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+
+backend:
+  image:
+    repository: lab-commit/backend
+    tag: ""
+  replicas: 1 # the frontend serves its cached value through backend restarts
+  serviceAccount:
+    roleArn: "" # IRSA role allowed rds-db:connect as lab_app
+  database:
+    url: ""
+    iamAuth: false
+  # When set, a SecurityGroupPolicy puts backend pods on these groups (cluster SG
+  # + db-client SG): the only pods RDS admits.
+  podSecurityGroupIds: []
+  resources:
+    requests: { cpu: 100m, memory: 64Mi }
+    limits: { memory: 128Mi }
+
+loadgen:
+  enabled: true
+  image:
+    repository: lab-commit/loadgen
+    tag: ""
+  targetURL: "" # default: https://<frontend.host>.<zone>/, i.e. through the ALB
+  stages: "15:3m,25:3m,35:4m,0:5m"
+  caCert: "" # PEM the load generator trusts for the self-signed ALB certificate
+  resources:
+    requests: { cpu: 100m, memory: 32Mi }
+    limits: { memory: 64Mi }

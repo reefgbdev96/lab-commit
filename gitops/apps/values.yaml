@@ -1,0 +1,19 @@
+# The only environment-specific file in gitops/: written by `make gitops-env`
+# from Terraform outputs, then committed. Empty values fail rendering on purpose.
+repoURL: ""
+revision: main
+region: ""
+clusterName: ""
+vpcId: ""
+vpcCidr: ""
+ecrRegistry: ""
+rdsAddress: ""
+dbAppUser: lab_app
+certificateArn: ""
+zone: lab.internal
+caCert: ""
+clusterSecurityGroupId: ""
+dbClientSecurityGroupId: ""
+lbcRoleArn: ""
+externalDnsRoleArn: ""
+backendRoleArn: ""

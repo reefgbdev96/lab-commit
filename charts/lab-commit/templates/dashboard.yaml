@@ -1,0 +1,10 @@
+# Picked up by the Grafana dashboard sidecar (label grafana_dashboard=1).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-commit-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  lab-commit.json: |-
+    {{- .Files.Get "dashboards/lab-commit.json" | nindent 4 }}

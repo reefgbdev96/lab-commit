@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lab-commit
+  labels:
+    app.kubernetes.io/part-of: lab-commit
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: lab-commit
+  endpoints:
+    # 15s keeps the KEDA query's [1m] rate window at four samples.
+    - port: http
+      path: /metrics
+      interval: 15s

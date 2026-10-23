@@ -1,0 +1,57 @@
+# kube-prometheus-stack for EKS on Fargate (kind e2e uses the same file).
+alertmanager: { enabled: false }
+nodeExporter: { enabled: false } # a DaemonSet: Fargate cannot run one
+kubeEtcd: { enabled: false } # control plane is managed by EKS
+kubeScheduler: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeProxy: { enabled: false }
+coreDns: { enabled: false }
+defaultRules: { create: false } # no Alertmanager to route alerts to
+
+# Fargate kubelets are not reachable from pods, so the default kubelet scrape is
+# off and pod CPU/memory (cAdvisor) is read through the API server proxy instead.
+kubelet: { enabled: false }
+
+prometheus:
+  additionalRulesForClusterRole:
+    - apiGroups: [""]
+      resources: ["nodes/proxy"]
+      verbs: ["get"]
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false # else our ServiceMonitor is ignored
+    retention: 2d
+    additionalScrapeConfigs:
+      - job_name: cadvisor
+        scheme: https
+        authorization:
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+
+grafana:
+  admin:
+    existingSecret: grafana-admin # a random chart password would leave Argo CD permanently OutOfSync
+  grafana.ini:
+    auth.anonymous: # internal-only, read-only access for the reviewer
+      enabled: true
+      org_role: Viewer
+  sidecar:
+    dashboards:
+      searchNamespace: ALL
+    datasources:
+      alertmanager:
+        enabled: false
+  ingress:
+    enabled: true
+    ingressClassName: lab-alb
+    annotations:
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/healthcheck-path: /api/health

@@ -1,0 +1,18 @@
+# Placeholder values so `make chart-lint` can render gitops/apps without Terraform outputs.
+repoURL: git@github.com:example/lab-commit.git
+region: us-east-1
+clusterName: lab-commit
+vpcId: vpc-0123
+vpcCidr: 10.0.0.0/16
+ecrRegistry: 123456789012.dkr.ecr.us-east-1.amazonaws.com
+rdsAddress: lab-commit-db.abc.us-east-1.rds.amazonaws.com
+certificateArn: arn:aws:acm:us-east-1:123456789012:certificate/x
+caCert: |
+  -----BEGIN CERTIFICATE-----
+  MIIB
+  -----END CERTIFICATE-----
+clusterSecurityGroupId: sg-cluster
+dbClientSecurityGroupId: sg-client
+lbcRoleArn: arn:aws:iam::123456789012:role/lab-commit-lbc
+externalDnsRoleArn: arn:aws:iam::123456789012:role/lab-commit-external-dns
+backendRoleArn: arn:aws:iam::123456789012:role/lab-commit-backend

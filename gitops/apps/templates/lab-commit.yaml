@@ -1,0 +1,38 @@
+{{- $repo := include "apps.required" (dict "key" "repoURL" "value" .Values.repoURL) }}
+{{- $dbURL := printf "postgres://%s@%s:5432/labdb?sslmode=verify-full&sslrootcert=/etc/ssl/certs/rds-ca.pem"
+      .Values.dbAppUser (include "apps.required" (dict "key" "rdsAddress" "value" .Values.rdsAddress)) }}
+{{- $values := dict
+      "registry" (include "apps.required" (dict "key" "ecrRegistry" "value" .Values.ecrRegistry))
+      "region" .Values.region
+      "zone" .Values.zone
+      "backend" (dict
+        "serviceAccount" (dict "roleArn" (include "apps.required" (dict "key" "backendRoleArn" "value" .Values.backendRoleArn)))
+        "database" (dict "url" $dbURL "iamAuth" true)
+        "podSecurityGroupIds" (list
+          (include "apps.required" (dict "key" "clusterSecurityGroupId" "value" .Values.clusterSecurityGroupId))
+          (include "apps.required" (dict "key" "dbClientSecurityGroupId" "value" .Values.dbClientSecurityGroupId))))
+      "loadgen" (dict "caCert" (include "apps.required" (dict "key" "caCert" "value" .Values.caCert))) }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+{{ include "apps.metadata" "lab-commit" }}
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo
+  sources:
+    - repoURL: {{ $repo }}
+      targetRevision: {{ .Values.revision }}
+      path: charts/lab-commit
+      helm:
+        valueFiles:
+          - $values/gitops/images/frontend.yaml
+          - $values/gitops/images/backend.yaml
+          - $values/gitops/images/loadgen.yaml
+        valuesObject: {{- toYaml $values | nindent 10 }}
+    - repoURL: {{ $repo }}
+      targetRevision: {{ .Values.revision }}
+      ref: values
+  {{- include "apps.syncPolicy" (dict "namespaceLabels" (dict
+        "pod-security.kubernetes.io/enforce" "restricted"
+        "elbv2.k8s.aws/pod-readiness-gate-inject" "enabled")) | nindent 2 }}

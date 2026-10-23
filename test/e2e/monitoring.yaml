@@ -1,0 +1,4 @@
+# Layered over gitops/values/monitoring.yaml for kind: Prometheus and
+# kube-state-metrics only, which is all the scaling and cAdvisor checks need.
+grafana:
+  enabled: false

@@ -1,0 +1,53 @@
+{{- if .Values.loadgen.enabled }}
+{{- $labels := include "lab-commit.labels" (dict "name" "loadgen") }}
+{{- with .Values.loadgen.caCert }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-ca
+data:
+  ca.crt: |
+    {{- . | nindent 4 }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  labels: {{- $labels | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- $labels | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- $labels | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {{- include "lab-commit.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: loadgen
+          image: {{ include "lab-commit.image" (dict "registry" .Values.registry "name" "loadgen" "image" .Values.loadgen.image) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: TARGET_URL
+              value: {{ .Values.loadgen.targetURL | default (printf "https://%s.%s/" .Values.frontend.host .Values.zone) | quote }}
+            - name: STAGES
+              value: {{ .Values.loadgen.stages | quote }}
+            {{- if .Values.loadgen.caCert }}
+            - name: CA_FILE
+              value: /etc/lab-ca/ca.crt
+          volumeMounts:
+            - name: lab-ca
+              mountPath: /etc/lab-ca
+              readOnly: true
+            {{- end }}
+          resources: {{- toYaml .Values.loadgen.resources | nindent 12 }}
+          securityContext: {{- include "lab-commit.containerSecurityContext" . | nindent 12 }}
+      {{- if .Values.loadgen.caCert }}
+      volumes:
+        - name: lab-ca
+          configMap:
+            name: lab-ca
+      {{- end }}
+{{- end }}

@@ -1,0 +1,19 @@
+<powershell>
+$ErrorActionPreference = 'Stop'
+
+# Trust the lab's self-signed certificate so Chrome shows the internal site as secure.
+$cert = Join-Path $env:TEMP 'lab-commit.crt'
+Set-Content -Path $cert -Value @'
+${trusted_cert_pem}
+'@
+Import-Certificate -FilePath $cert -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+
+# Chrome enterprise MSI, installed only if Google's Authenticode signature checks out.
+$msi = Join-Path $env:TEMP 'chrome.msi'
+Invoke-WebRequest -UseBasicParsing -OutFile $msi -Uri 'https://dl.google.com/chrome/install/googlechromestandaloneenterprise64.msi'
+$sig = Get-AuthenticodeSignature -FilePath $msi
+if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Google LLC') {
+    throw "Chrome installer signature check failed: $($sig.Status) $($sig.SignerCertificate.Subject)"
+}
+Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart" -Wait
+</powershell>

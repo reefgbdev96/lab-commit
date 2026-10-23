@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+{{ include "apps.metadata" "aws-load-balancer-controller" }}
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  source:
+    repoURL: https://aws.github.io/eks-charts
+    chart: aws-load-balancer-controller
+    targetRevision: 3.6.1
+    helm:
+      valuesObject:
+        # Fargate has no instance metadata, so the controller cannot discover these.
+        clusterName: {{ include "apps.required" (dict "key" "clusterName" "value" .Values.clusterName) }}
+        region: {{ include "apps.required" (dict "key" "region" "value" .Values.region) }}
+        vpcId: {{ include "apps.required" (dict "key" "vpcId" "value" .Values.vpcId) }}
+        replicaCount: 1 # lab: one Fargate pod instead of two
+        serviceAccount:
+          name: aws-load-balancer-controller
+          annotations:
+            eks.amazonaws.com/role-arn: {{ include "apps.required" (dict "key" "lbcRoleArn" "value" .Values.lbcRoleArn) }}
+  {{- include "apps.syncPolicy" dict | nindent 2 }}

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: lab-commit-apps
+description: App of apps - platform objects and every child Argo CD Application.
+type: application
+version: 0.1.0

@@ -1,0 +1,18 @@
+# kind: local images, a throwaway Postgres, no AWS integrations.
+imagePullPolicy: Never
+
+frontend:
+  image: { tag: e2e }
+  ingress: { enabled: false }
+
+backend:
+  image: { tag: e2e }
+  replicas: 1
+  database:
+    url: postgres://postgres:e2e@postgres.e2e-db:5432/labdb?sslmode=disable # test-only password
+    iamAuth: false
+
+loadgen:
+  image: { tag: e2e }
+  targetURL: http://frontend.demo.svc/
+  stages: "35:30m" # constant load; run.sh stops it explicitly before checking scale-down

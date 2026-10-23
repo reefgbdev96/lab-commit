@@ -1,0 +1,81 @@
+{{- $labels := include "lab-commit.labels" (dict "name" "backend") }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backend
+  labels: {{- $labels | nindent 4 }}
+  {{- with .Values.backend.serviceAccount.roleArn }}
+  annotations:
+    eks.amazonaws.com/role-arn: {{ . }}
+  {{- end }}
+{{- with .Values.backend.podSecurityGroupIds }}
+---
+# Fargate assigns security groups when a pod is created, so this must exist
+# before the Deployment's first pod: sync wave -1.
+apiVersion: vpcresources.k8s.aws/v1beta1
+kind: SecurityGroupPolicy
+metadata:
+  name: backend
+  labels: {{- $labels | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  podSelector:
+    matchLabels: {{- $labels | nindent 6 }}
+  securityGroups:
+    groupIds: {{- toYaml . | nindent 6 }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels: {{- $labels | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels: {{- $labels | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- $labels | nindent 8 }}
+    spec:
+      serviceAccountName: backend
+      securityContext: {{- include "lab-commit.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: backend
+          image: {{ include "lab-commit.image" (dict "registry" .Values.registry "name" "backend" "image" .Values.backend.image) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: DATABASE_URL
+              value: {{ required "backend.database.url is required" .Values.backend.database.url | quote }}
+            - name: DB_IAM_AUTH
+              value: {{ .Values.backend.database.iamAuth | quote }}
+            {{- with .Values.region }}
+            - name: AWS_REGION
+              value: {{ . }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              sleep: { seconds: 15 }
+          resources: {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext: {{- include "lab-commit.containerSecurityContext" . | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels: {{- $labels | nindent 4 }}
+spec:
+  selector: {{- $labels | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

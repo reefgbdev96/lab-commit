@@ -1,0 +1,5 @@
+apiVersion: v2
+name: lab-commit
+description: Frontend, backend and load generator for the Lab-Commit demo.
+type: application
+version: 0.1.0

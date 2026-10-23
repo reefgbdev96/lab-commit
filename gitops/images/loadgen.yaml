@@ -1,0 +1,4 @@
+# Rewritten by the loadgen pipeline (ci/buildspec.yml) with <VERSION>-<sha7>.
+loadgen:
+  image:
+    tag: v1.0.0

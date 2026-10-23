@@ -1,0 +1,20 @@
+# Argo CD install values, applied by `make bootstrap` (server.ingress.hostname is
+# set there from the zone).
+configs:
+  params:
+    server.insecure: true # TLS terminates at the internal ALB
+
+dex:
+  enabled: false
+notifications:
+  enabled: false
+applicationSet:
+  replicas: 0 # unused; saves a Fargate pod
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: lab-alb
+    annotations:
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/healthcheck-path: /healthz

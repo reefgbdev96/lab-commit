@@ -1,0 +1,101 @@
+{{- $labels := include "lab-commit.labels" (dict "name" "frontend") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels: {{- $labels | nindent 4 }}
+spec:
+  # No replicas: KEDA's HPA owns the count, and Argo CD must not reset it.
+  selector:
+    matchLabels: {{- $labels | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- $labels | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {{- include "lab-commit.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: frontend
+          image: {{ include "lab-commit.image" (dict "registry" .Values.registry "name" "frontend" "image" .Values.frontend.image) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: BACKEND_URL
+              value: http://backend
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          lifecycle:
+            preStop:
+              # Keep serving while the ALB and Service endpoints drop the pod.
+              sleep: { seconds: 15 }
+          resources: {{- toYaml .Values.frontend.resources | nindent 12 }}
+          securityContext: {{- include "lab-commit.containerSecurityContext" . | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels: {{- $labels | nindent 4 }}
+spec:
+  selector: {{- $labels | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- if .Values.frontend.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  labels: {{- $labels | nindent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+spec:
+  ingressClassName: {{ .Values.frontend.ingress.className }}
+  rules:
+    - host: {{ printf "%s.%s" .Values.frontend.host .Values.zone }}
+      http:
+        paths:
+          - path: /
+            pathType: Exact # only the page: /metrics and /healthz are not reachable through the ALB
+            backend:
+              service:
+                name: frontend
+                port: { name: http }
+{{- end }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: frontend
+  labels: {{- $labels | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: frontend
+  minReplicaCount: {{ .Values.frontend.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.frontend.autoscaling.maxReplicas }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        # Step down one pod at a time so the scale-in is visible on the dashboard.
+        scaleDown:
+          stabilizationWindowSeconds: 30
+          policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 30
+  triggers:
+    - type: prometheus
+      metricType: AverageValue # replicas = ceil(total requests/s / threshold)
+      metadata:
+        serverAddress: {{ .Values.frontend.autoscaling.prometheusAddress }}
+        query: sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}",service="frontend"}[1m]))
+        threshold: {{ .Values.frontend.autoscaling.targetRPSPerPod | quote }}

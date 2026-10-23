@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+{{ include "apps.metadata" "kube-prometheus-stack" }}
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 92.11.0
+      helm:
+        valueFiles:
+          - $values/gitops/values/monitoring.yaml
+        valuesObject:
+          grafana:
+            ingress:
+              hosts: [grafana.{{ .Values.zone }}]
+    - repoURL: {{ include "apps.required" (dict "key" "repoURL" "value" .Values.repoURL) }}
+      targetRevision: {{ .Values.revision }}
+      ref: values
+  {{- include "apps.syncPolicy" dict | nindent 2 }}
