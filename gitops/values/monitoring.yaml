@@ -20,6 +20,10 @@ prometheus:
   prometheusSpec:
     serviceMonitorSelectorNilUsesHelmValues: false # else our ServiceMonitor is ignored
     retention: 2d
+    # Fargate sizes pods from requests; the 0.5 GB default leaves no headroom.
+    resources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { memory: 512Mi }
     additionalScrapeConfigs:
       - job_name: cadvisor
         scheme: https
@@ -37,6 +41,10 @@ prometheus:
             replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
 
 grafana:
+  # At the 0.25 vCPU default, plugin loading outlasts the liveness probe.
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { memory: 512Mi }
   admin:
     existingSecret: grafana-admin # a random chart password would leave Argo CD permanently OutOfSync
   grafana.ini:

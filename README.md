@@ -116,14 +116,18 @@ keys on disk).
    `terraform -chdir=terraform/bootstrap init && terraform -chdir=terraform/bootstrap apply -var operator_user=<your-iam-user>`
    then add the role profile to `~/.aws/config` and use it from here on:
    ```ini
+   [profile commit-login]
+   # Terraform's SDK cannot assume a role from an `aws login` session; the CLI can.
+   credential_process = aws configure export-credentials --profile default --format process
+
    [profile commit]
    role_arn          = <operator_role_arn output>
-   source_profile    = default
+   source_profile    = commit-login
    role_session_name = <your-iam-user>
    region            = eu-west-1
    ```
-   `export AWS_PROFILE=commit`, check `aws sts get-caller-identity`, then hand the role
-   session to Terraform: `eval "$(aws configure export-credentials --format env)"`.
+   `export AWS_PROFILE=commit` and check `aws sts get-caller-identity`. Terraform,
+   kubectl and the tunnels all use this profile and refresh it themselves.
 2. `cp terraform/envs/lab/terraform.tfvars.example terraform/envs/lab/terraform.tfvars`
    and set `github_repository`.
 3. `make init`, then `terraform -chdir=terraform/envs/lab apply`.

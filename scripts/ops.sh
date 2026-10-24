@@ -47,10 +47,19 @@ cmd_delete_default_vpc() {
 }
 
 # Port-forward through the jump box: forward <remote host> <remote port> <local port>.
+# SSM sessions drop now and then, so it reconnects until Ctrl-C.
 forward() {
-  aws ssm start-session --region "$(out region)" --target "$(out jumpbox_instance_id)" \
-    --document-name AWS-StartPortForwardingSessionToRemoteHost \
-    --parameters "host=$1,portNumber=$2,localPortNumber=$3"
+  local region target
+  region=$(out region)
+  target=$(out jumpbox_instance_id)
+  trap 'exit 130' INT
+  while :; do
+    aws ssm start-session --region "$region" --target "$target" \
+      --document-name AWS-StartPortForwardingSessionToRemoteHost \
+      --parameters "host=$1,portNumber=$2,localPortNumber=$3" || true
+    echo "Tunnel closed; reconnecting." >&2
+    sleep 2
+  done
 }
 cmd_tunnel_eks() { forward "$(api_host)" 443 8443; }
 cmd_tunnel_db() { forward "$(out rds_address)" 5432 15432; }
