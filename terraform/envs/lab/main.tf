@@ -47,6 +47,9 @@ module "jumpbox" {
   vpc_cidr         = module.network.vpc_cidr_block
   subnet_id        = module.network.private_subnet_ids[0]
   trusted_cert_pem = module.dns_tls.certificate_pem
+
+  # user_data downloads Chrome at first boot, so the NAT route must already exist.
+  depends_on = [module.network]
 }
 
 module "eks" {

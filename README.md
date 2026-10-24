@@ -35,7 +35,7 @@ reached only through SSM is the one way in.
 | SSL termination on the ALB, self-signed cert | `terraform/modules/dns-tls` generates an X.509 v3 cert (ACM rejects v1) and imports it into ACM; `IngressClassParams` pins it with TLS 1.3. |
 | A CD tool on the cluster | Argo CD, app-of-apps in `gitops/`. |
 | App in any language, Helm 3 | Go services in `apps/`, chart in `charts/lab-commit`. |
-| Page shows "Hello Lab-Commit X", secured URL only | `Hello Lab-Commit v1.0.0 (db: 5)` at `https://Lab-commit-task.lab.internal` — HTTPS listener only, no port 80. |
+| Page shows "Hello Lab-Commit X", secured URL only | `Hello Lab-Commit <apps/frontend/VERSION> (db: 5)` at `https://Lab-commit-task.lab.internal` — HTTPS listener only, no port 80. |
 | RDS, backend queries it, frontend polls every 5 s | `SELECT value FROM messages WHERE id = 1`; the frontend caches it and the page refreshes every 5 s. |
 | Not exposed to the internet | Internal ALB, private hosted zone, private EKS endpoint, no public IPs. |
 | Route 53 record `Lab-commit-task.<zone>` | external-dns creates it from the Ingress (DNS is case-insensitive; Kubernetes requires lowercase hosts). |
@@ -45,7 +45,7 @@ reached only through SSM is the one way in.
 | Load generator via Web | `apps/loadgen` drives `https://lab-commit-task.lab.internal/` through the ALB, verifying TLS. |
 | >10 req/s adds a frontend pod, up to 4, then scales down | KEDA on `sum(rate(http_requests_total[1m]))`, 10 req/s per pod, min 1, max 4; loadgen ramps 15 → 25 → 35 req/s (2 → 3 → 4 pods) then pauses (back to 1, one pod per 30 s). |
 | Code in GitHub, pipeline deploys new frontend versions | `terraform/modules/pipeline` + `ci/buildspec.yml`; bump `apps/frontend/VERSION` to `v1.0.1` and push. |
-| Infrastructure in Terraform | Everything above, in `terraform/`. |
+| Infrastructure in Terraform | Every AWS resource is in `terraform/`. In-cluster software is GitOps (`gitops/`, applied by Argo CD; external-dns writes the Route 53 records), the DB schema and role are `db/bootstrap.sql`, and `scripts/ops.sh` does the one-off bootstrap (Argo CD install, Grafana admin secret, default-VPC deletion). |
 
 ## Design decisions
 
@@ -142,7 +142,7 @@ keys on disk).
 7. In one terminal `make tunnel-db`; in another `make db-bootstrap`.
 8. In one terminal `make tunnel-eks`; in another `make kubeconfig`.
 9. `make gitops-env`, review `gitops/apps/values.yaml`, commit and push.
-10. `make bootstrap` (`DEPLOY_KEY=path make bootstrap` for a private repo). It
+10. `DEPLOY_KEY=~/.ssh/<read-only deploy key> make bootstrap` — Argo CD clones over SSH. It
     installs Argo CD and waits until all six Applications are Synced and Healthy.
 
 ## Review it
@@ -160,11 +160,13 @@ aws ssm start-session --target "$(terraform -chdir=terraform/envs/lab output -ra
 
 In Chrome on the jump box:
 
-- `https://Lab-commit-task.lab.internal` — `Hello Lab-Commit v1.0.0 (db: 5)`, a
+- `https://Lab-commit-task.lab.internal` — `Hello Lab-Commit <VERSION> (db: 5)`, a
   valid padlock (the lab certificate is trusted at boot), refreshing every 5 s.
 - `https://grafana.lab.internal` — dashboard **Lab-Commit**: pods, request rate,
   CPU and memory. The load generator loops every ~15 minutes, so the frontend
-  climbs 1 → 2 → 3 → 4 and steps back to 1.
+  climbs 1 → 2 → 3 → 4 and steps back to 1. Stop the load with
+  `kubectl --context lab-commit -n demo scale deploy/loadgen --replicas=0` (Argo CD
+  self-heal restores it within minutes; set `loadgen.enabled: false` to keep it off).
 - `https://argocd.lab.internal` — user `admin`, password from
   `kubectl --context lab-commit -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`.
 
@@ -177,6 +179,16 @@ then reads `Hello Lab-Commit v1.0.1 (db: 5)`.
 
 **Not exposed:** from your laptop, `Lab-commit-task.lab.internal` does not resolve,
 the EKS endpoint has no public access, and no instance or pod has a public IP.
+
+**Verified live** (eu-west-1, October 2026)
+
+| Check | Result |
+|---|---|
+| Page over HTTPS via the internal ALB | `HTTP/2 200`, `Refresh: 5`, certificate verifies against the lab CA, TLS 1.3 |
+| DB change reaches the page | 3 s after `UPDATE` (poll interval 5 s) |
+| Scaling | 35 req/s → 4 frontend pods within ~70 s; load stops → back to 1 within ~70 s |
+| Pipeline `v1.0.1` | push → webhook → build 2m41s → tag commit → page shows `v1.0.1` after ~5.5 min; pod digest = ECR digest |
+| Jump box | Chrome installed, lab CA trusted, `lab-commit-task.lab.internal` resolves to the ALB's private IPs |
 
 **Acceptance checks**
 
@@ -197,8 +209,8 @@ the EKS endpoint has no public access, and no instance or pod has a public IP.
 
 ## Cost
 
-About $11 per day in eu-west-1 while running (EKS control plane $0.10/h, ~19
-Fargate pods ~$0.26/h, NAT $0.05/h, ALB $0.03/h, RDS $0.02/h), plus ~$1.50 for each
+About $12.50 per day in eu-west-1 while running (EKS control plane $0.10/h, ~19
+Fargate pods ~$0.32/h, NAT $0.05/h, ALB $0.03/h, RDS $0.02/h), plus ~$1.50 for each
 day the Windows jump box runs — stop it when idle
 (`aws ec2 stop-instances --instance-ids <id>`). Destroy everything after review.
 
@@ -211,6 +223,10 @@ make e2e     # kind cluster: restricted PSS, Prometheus, KEDA 1 → 4 → 1, DB 
 
 ## Security notes and next steps
 
+- The operator role carries AdministratorAccess: Terraform here creates IAM roles,
+  OIDC providers, EKS, RDS and networking, so a scoped policy would be nearly as broad.
+  It is assumable only by the named IAM user with a fixed session name; a permissions
+  boundary limited to `lab-commit*` resources is the next step.
 - The self-signed TLS private key is in Terraform state — kept in the encrypted,
   versioned, TLS-only S3 backend, never in Git or outputs. Imported certificates do
   not auto-renew: re-apply before the 365-day expiry.
